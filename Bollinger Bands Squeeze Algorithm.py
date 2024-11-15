@@ -138,7 +138,7 @@ plt.scatter(data.index[sell_signals], data['Close'].iloc[sell_signals], label='S
 plt.plot(data.index, data['Capital'], label='Portfolio Value', color='blue')
 plt.plot(data.index, data['BuyHold'], label='Buy & Hold Value', color='orange', linestyle='--')
 plt.legend()
-plt.title("Trading Strategy vs Buy & Hold on TLT (Optimized with Signal-Based Holding)")
+plt.title("Trading Strategy vs Buy & Hold")
 plt.xlabel("Date")
 plt.ylabel("Price/Value (USD)")
 plt.grid(visible=True, alpha=0.3)
