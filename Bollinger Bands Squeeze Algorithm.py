@@ -14,12 +14,12 @@ import itertools
 # To identify the direction of the breakout, the strategy measures the price change on the day
 
 # Download data from Yahoo Finance
-tickers = ['TSLA'] # Please try this out with any tickers you are curious in exploring
+tickers = ['MSFT'] # Please try this out with any tickers you are curious in exploring
 # Note the strategy is designed to perform on volatile securities
 data = yf.download(
     tickers=tickers,
-    start="2022-01-01",
-    end="2024-04-30",
+    start="2023-01-01",
+    end="2024-09-01",
     interval="1d",
     auto_adjust=True
 )
@@ -29,7 +29,7 @@ data = pd.DataFrame(data['Close']).dropna()
 data.columns = ['Close']
 
 # Initial capital
-initial_capital = 20000
+initial_capital = 100
 
 # Define parameter ranges for optimisation (Below figures are tested using trial and error on TradingView)
 # Concluded that these ranges provide the best outcome for this strategy
@@ -50,6 +50,8 @@ def backtest_strategy(length, mult, cond, BOlength):
     capital_history = [initial_capital]
     buy_signals = []
     sell_signals = []
+    trailing_stop_price = None
+    stop_percent = 0.01
 
     # Calculate Bollinger Bands
     data['SMA'] = data['Close'].rolling(window=length).mean()
@@ -70,21 +72,30 @@ def backtest_strategy(length, mult, cond, BOlength):
         if position == 0:  # No open position
             if row['BuyEntry']:
                 position = 1  # Enter long position
+                trailing_stop_price = row['Close'] * (1 - stop_percent)  # Set initial trailing stop
                 buy_signals.append(index)
             elif row['SellEntry']:
                 position = -1  # Enter short position
+                trailing_stop_price = row['Close'] * (1 + stop_percent)  # Set initial trailing stop
                 sell_signals.append(index)
         elif position == 1:  # Currently holding a long position
-            if row['SellEntry']:  # Exit long on a sell signal
-                position = -1  # Switch to short position
+            # Update trailing stop price if the current close is higher
+            if row['Close'] > trailing_stop_price / (1 - stop_percent):
+                trailing_stop_price = row['Close'] * (1 - stop_percent)
+
+            if row['SellEntry'] or row['Close'] <= trailing_stop_price:  # Exit long on a sell signal or stop loss
+                position = -1  # Initial breakout direction was incorrect, taking opposite position
                 sell_signals.append(index)
         elif position == -1:  # Currently holding a short position
-            if row['BuyEntry']:  # Exit short on a buy signal
-                position = 1  # Switch to long position
-                buy_signals.append(index)
+            # Update trailing stop price if the current close is lower
+            if row['Close'] < trailing_stop_price / (1 + stop_percent):
+                trailing_stop_price = row['Close'] * (1 + stop_percent)
 
+            if row['BuyEntry'] or row['Close'] >= trailing_stop_price:  # Exit short on a buy signal or stop loss
+                position = 1  # Initial breakout direction was incorrect, taking opposite position
+                buy_signals.append(index)
         # Update capital based on returns and position
-        capital *= (1 + position * row['Returns'])
+        capital = capital * (1 + (position * row['Returns']))
         capital_history.append(capital)
 
     # Calculate daily returns and Sharpe ratio
@@ -132,14 +143,38 @@ data['BuyHold'] = initial_capital * (data['Close'] / data['Close'].iloc[0])
 
 # Plotting results
 plt.figure(figsize=(14, 7))
-plt.plot(data.index, data['Close'], label='TSLA Price', alpha=0.7)
+plt.plot(data.index, data['Close'], label='Share Price', alpha=0.7)
 plt.scatter(data.index[buy_signals], data['Close'].iloc[buy_signals], label='Buy Signal', marker='^', color='green', alpha=1)
 plt.scatter(data.index[sell_signals], data['Close'].iloc[sell_signals], label='Sell Signal', marker='v', color='red', alpha=1)
 plt.plot(data.index, data['Capital'], label='Portfolio Value', color='blue')
 plt.plot(data.index, data['BuyHold'], label='Buy & Hold Value', color='orange', linestyle='--')
+plt.yscale('log')  # Set y-axis to logarithmic scale
 plt.legend()
-plt.title("Trading Strategy vs Buy & Hold TSLA")
+plt.title("Trading Strategy vs Buy & Hold")
 plt.xlabel("Date")
-plt.ylabel("Price/Value (USD)")
+plt.ylabel("Value in log scale (USD)")
 plt.grid(visible=True, alpha=0.3)
 plt.show()
+
+##########Performance Evaluation############
+capital_series = pd.Series(capital_history)
+daily_returns = capital_series.pct_change().dropna()
+avg_return = daily_returns.mean()
+std_return = daily_returns.std()
+
+# Sortino Ratio
+def calculate_sortino_ratio(returns, target=0):
+    downside_returns = returns[returns < target]
+    downside_deviation = downside_returns.std()
+    avg_return = returns.mean()
+    
+    if downside_deviation != 0:
+        sortino_ratio = avg_return / downside_deviation
+    else:
+        sortino_ratio = -float('inf')  # Avoid division by zero
+    
+    return sortino_ratio
+
+sortino_ratio = calculate_sortino_ratio(daily_returns)
+
+print(f"Sortino Ratio: {sortino_ratio}")
