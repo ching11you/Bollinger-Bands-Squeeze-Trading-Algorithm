@@ -127,7 +127,7 @@ for length, mult in itertools.product(length_values, mult_values):
 
 # Output the best parameters
 print(f"Best Parameters: Length={best_params[0]}, Mult={best_params[1]}, Cond={best_params[2]}, BOlength={best_params[3]}")
-print(f"Best Sharpe Ratio: {best_sharpe_ratio}")
+print(f"Best Sharpe Ratio: {round(best_sharpe_ratio,2)}")
 
 # Re-run the strategy with the best parameters
 length, mult, cond, BOlength = best_params
@@ -140,21 +140,6 @@ sell_signals = [data.index.get_loc(signal) for signal in sell_signals if signal 
 # Calculate returns
 data['Capital'] = capital_history[:len(data)]
 data['BuyHold'] = initial_capital * (data['Close'] / data['Close'].iloc[0])
-
-# Plotting results
-plt.figure(figsize=(14, 7))
-plt.plot(data.index, data['Close'], label='Share Price', alpha=0.7)
-plt.scatter(data.index[buy_signals], data['Close'].iloc[buy_signals], label='Buy Signal', marker='^', color='green', alpha=1)
-plt.scatter(data.index[sell_signals], data['Close'].iloc[sell_signals], label='Sell Signal', marker='v', color='red', alpha=1)
-plt.plot(data.index, data['Capital'], label='Portfolio Value', color='blue')
-plt.plot(data.index, data['BuyHold'], label='Buy & Hold Value', color='orange', linestyle='--')
-plt.yscale('log')  # Set y-axis to logarithmic scale
-plt.legend()
-plt.title("Trading Strategy vs Buy & Hold")
-plt.xlabel("Date")
-plt.ylabel("Value in log scale (USD)")
-plt.grid(visible=True, alpha=0.3)
-plt.show()
 
 ##########Performance Evaluation############
 capital_series = pd.Series(capital_history)
@@ -177,4 +162,19 @@ def calculate_sortino_ratio(returns, target=0):
 
 sortino_ratio = calculate_sortino_ratio(daily_returns)
 
-print(f"Sortino Ratio: {sortino_ratio}")
+print(f"Sortino Ratio: {round(sortino_ratio ,2)}")
+
+# Plotting results
+plt.figure(figsize=(14, 7))
+plt.plot(data.index, data['Close'], label='Share Price', alpha=0.7)
+plt.scatter(data.index[buy_signals], data['Close'].iloc[buy_signals], label='Buy Signal', marker='^', color='green', alpha=1)
+plt.scatter(data.index[sell_signals], data['Close'].iloc[sell_signals], label='Sell Signal', marker='v', color='red', alpha=1)
+plt.plot(data.index, data['Capital'], label='Portfolio Value', color='blue')
+plt.plot(data.index, data['BuyHold'], label='Buy & Hold Value', color='orange', linestyle='--')
+plt.yscale('log')  # Set y-axis to logarithmic scale
+plt.legend()
+plt.title("Trading Strategy vs Buy & Hold")
+plt.xlabel("Date")
+plt.ylabel("Value in log scale (USD)")
+plt.grid(visible=True, alpha=0.3)
+plt.show()
